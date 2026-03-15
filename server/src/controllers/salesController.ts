@@ -1,0 +1,92 @@
+// src/controllers/saleController.ts
+import { Request, Response } from 'express';
+import { saleService } from '../services/saleService';
+import { TenantRequest } from '../middleware/tenantMiddleware';
+
+export const listSales = async (req: Request, res: Response) => {
+  try {
+    const { tenantId } = req as TenantRequest;
+
+    const result = await saleService.listSales(tenantId, {
+      page: req.query.page as string | undefined,
+      limit: req.query.limit as string | undefined,
+      // date range (matches frontend query names)
+      from: req.query.from as string | undefined,
+      to: req.query.to as string | undefined,
+      // optional filters
+      customerId: req.query.customerId as string | undefined,
+      userId: req.query.userId as string | undefined,
+      status: req.query.status as string | undefined,
+      search: req.query.search as string | undefined,
+    });
+
+    // result should be: { data, page, limit, total, totalPages }
+    return res.json(result);
+  } catch (error: any) {
+    return res
+      .status(500)
+      .json({ error: error.message || 'Failed to list sales' });
+  }
+};
+
+export const getSale = async (req: Request, res: Response) => {
+  try {
+    const { tenantId } = req as TenantRequest;
+    const id = req.params.id as string;
+
+    const sale = await saleService.getSale(tenantId, id);
+
+    if (!sale) {
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+
+    return res.json(sale);
+  } catch (error: any) {
+    return res
+      .status(500)
+      .json({ error: error.message || 'Failed to fetch sale' });
+  }
+};
+
+export const createSale = async (req: Request, res: Response) => {
+  try {
+    const { tenantId, user } = req as TenantRequest;
+    const userId = user?.userId;
+
+    if (!userId) {
+      return res
+        .status(400)
+        .json({ error: 'User not resolved from token' });
+    }
+
+    const sale = await saleService.createSale(tenantId, {
+      ...req.body,
+      userId,
+    });
+
+    return res.status(201).json(sale);
+  } catch (error: any) {
+    return res
+      .status(400)
+      .json({ error: error.message || 'Failed to create sale' });
+  }
+};
+
+export const updateSale = async (req: Request, res: Response) => {
+  try {
+    const { tenantId } = req as TenantRequest;
+    const id = req.params.id as string;
+
+    const sale = await saleService.updateSale(tenantId, id, req.body);
+
+    if (!sale) {
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+
+    return res.json(sale);
+  } catch (error: any) {
+    return res
+      .status(400)
+      .json({ error: error.message || 'Failed to update sale' });
+  }
+};

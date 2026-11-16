@@ -71,7 +71,9 @@ export const dashboardService = {
     const lowStockCount = await Product.countDocuments({
       tenant: tenantObjectId,
       trackInventory: true,
-      quantityOnHand: { $lt: 5 },
+      $expr: {
+        $lt: ['$quantityOnHand', { $ifNull: ['$reorderLevel', 5] }],
+      },
     });
 
     return {

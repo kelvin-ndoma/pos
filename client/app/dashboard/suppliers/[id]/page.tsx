@@ -5,6 +5,7 @@ import { useEffect, useState, FormEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { authHeaders } from '@/lib/apiClient'; // Added import
 
 type Supplier = {
   _id: string;
@@ -37,18 +38,10 @@ export default function EditSupplierPage() {
 
     setLoading(true);
     try {
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('accessToken')
-          : null;
-
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/suppliers/${id}`,
         {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: authHeaders(), // Using authHeaders instead of manual token handling
         },
       );
 
@@ -81,11 +74,6 @@ export default function EditSupplierPage() {
     setSaving(true);
 
     try {
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('accessToken')
-          : null;
-
       const body = {
         name: supplier.name,
         email: supplier.email || undefined,
@@ -99,10 +87,7 @@ export default function EditSupplierPage() {
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/suppliers/${supplier._id}`,
         {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: authHeaders(), // Using authHeaders instead of manual token handling
           body: JSON.stringify(body),
         },
       );
@@ -122,32 +107,100 @@ export default function EditSupplierPage() {
 
   if (loading) {
     return (
-      <p className="text-xs text-slate-400 px-2 py-2">
-        Loading supplier…
-      </p>
+      <div className="h-full w-full px-0 py-4">
+        <div className="max-w-xl space-y-4">
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => router.back()}
+              className="mb-1"
+            >
+              ← Back
+            </Button>
+            <h2 className="text-lg font-semibold tracking-tight">
+              Edit supplier
+            </h2>
+          </div>
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-slate-800/50 rounded w-1/3"></div>
+            <div className="space-y-3">
+              <div className="h-10 bg-slate-800/50 rounded"></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="h-10 bg-slate-800/50 rounded"></div>
+                <div className="h-10 bg-slate-800/50 rounded"></div>
+              </div>
+              <div className="h-10 bg-slate-800/50 rounded"></div>
+              <div className="h-10 bg-slate-800/50 rounded"></div>
+              <div className="h-20 bg-slate-800/50 rounded"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
   if (!supplier) {
     return (
-      <p className="text-xs text-slate-400 px-2 py-2">
-        {error || 'Supplier not found.'}
-      </p>
+      <div className="h-full w-full px-0 py-4">
+        <div className="max-w-xl space-y-4">
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => router.back()}
+              className="mb-1"
+            >
+              ← Back
+            </Button>
+            <h2 className="text-lg font-semibold tracking-tight">
+              Edit supplier
+            </h2>
+          </div>
+          <div className="bg-amber-950/20 border border-amber-900 rounded-md px-3 py-4 text-center">
+            <p className="text-xs text-amber-400">
+              {error || 'Supplier not found.'}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => router.push('/dashboard/suppliers')}
+              className="mt-3"
+            >
+              View all suppliers
+            </Button>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
     <div className="h-full w-full px-0 py-4">
       <div className="max-w-xl space-y-4">
-        <h2 className="text-lg font-semibold tracking-tight">
-          Edit supplier
-        </h2>
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 text-sm"
-        >
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => router.back()}
+            className="mb-1"
+          >
+            ← Back
+          </Button>
+          <h2 className="text-lg font-semibold tracking-tight">
+            Edit supplier
+          </h2>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="space-y-4 text-sm">
           <div className="space-y-1">
-            <label className="text-xs text-slate-300">Name</label>
+            <label className="text-xs text-slate-300">
+              Name <span className="text-rose-400">*</span>
+            </label>
             <Input
               value={supplier.name}
               onChange={(e) =>
@@ -156,14 +209,13 @@ export default function EditSupplierPage() {
                 )
               }
               required
+              placeholder="e.g., Acme Corporation"
             />
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <label className="text-xs text-slate-300">
-                Email
-              </label>
+              <label className="text-xs text-slate-300">Email</label>
               <Input
                 type="email"
                 value={supplier.email || ''}
@@ -172,12 +224,11 @@ export default function EditSupplierPage() {
                     s ? { ...s, email: e.target.value } : s,
                   )
                 }
+                placeholder="contact@acme.com"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-slate-300">
-                Phone
-              </label>
+              <label className="text-xs text-slate-300">Phone</label>
               <Input
                 value={supplier.phone || ''}
                 onChange={(e) =>
@@ -185,14 +236,13 @@ export default function EditSupplierPage() {
                     s ? { ...s, phone: e.target.value } : s,
                   )
                 }
+                placeholder="+1 234 567 890"
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-slate-300">
-              Address
-            </label>
+            <label className="text-xs text-slate-300">Address</label>
             <Input
               value={supplier.address || ''}
               onChange={(e) =>
@@ -200,13 +250,12 @@ export default function EditSupplierPage() {
                   s ? { ...s, address: e.target.value } : s,
                 )
               }
+              placeholder="123 Business St, City, Country"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-slate-300">
-              Contact person
-            </label>
+            <label className="text-xs text-slate-300">Contact person</label>
             <Input
               value={supplier.contactPerson || ''}
               onChange={(e) =>
@@ -214,20 +263,21 @@ export default function EditSupplierPage() {
                   s ? { ...s, contactPerson: e.target.value } : s,
                 )
               }
+              placeholder="John Doe"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-slate-300">
-              Notes
-            </label>
-            <Input
+            <label className="text-xs text-slate-300">Notes</label>
+            <textarea
+              className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 min-h-[80px] placeholder:text-slate-500"
               value={supplier.notes || ''}
               onChange={(e) =>
                 setSupplier((s) =>
                   s ? { ...s, notes: e.target.value } : s,
                 )
               }
+              placeholder="Additional notes about the supplier..."
             />
           </div>
 
@@ -237,7 +287,7 @@ export default function EditSupplierPage() {
             </p>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 pt-2">
             <Button type="submit" disabled={saving} size="sm">
               {saving ? 'Saving…' : 'Save changes'}
             </Button>

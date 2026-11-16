@@ -1,3 +1,4 @@
+// src/models/Sale.ts
 import { Schema, model, Model } from 'mongoose';
 import { ISale } from '../types/sale.types';
 
@@ -22,6 +23,23 @@ const saleSchema = new Schema<ISale, SaleModel>(
       enum: ['OPEN', 'COMPLETED', 'VOID'],
       default: 'COMPLETED',
     },
+
+    type: {
+      type: String,
+      enum: ['DINE_IN', 'TAKEAWAY', 'DELIVERY'],
+      default: 'TAKEAWAY',
+      index: true,
+    },
+    table: { type: Schema.Types.ObjectId, ref: 'Table' },
+    covers: { type: Number },
+    notes: { type: String, trim: true },
+    kitchenStatus: {
+      type: String,
+      enum: ['NEW', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'],
+      default: 'NEW',
+      index: true,
+    },
+
     subtotal: { type: Number, required: true },
     taxTotal: { type: Number, required: true },
     discountTotal: { type: Number, required: true },
@@ -34,5 +52,6 @@ const saleSchema = new Schema<ISale, SaleModel>(
 );
 
 saleSchema.index({ tenant: 1, createdAt: -1 });
+saleSchema.index({ tenant: 1, kitchenStatus: 1, createdAt: -1 });
 
 export const Sale = model<ISale, SaleModel>('Sale', saleSchema);

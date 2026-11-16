@@ -1,3 +1,4 @@
+// src/models/SaleItem.ts
 import { Schema, model, Model } from 'mongoose';
 import { ISaleItem } from '../types/sale.types';
 
@@ -32,7 +33,6 @@ const saleItemSchema = new Schema<ISaleItem, SaleItemModel>(
 
     lineNet: { type: Number, required: true },
     lineTotal: { type: Number, required: true },
-
   },
   { timestamps: true },
 );

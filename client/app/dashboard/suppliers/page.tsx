@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { authHeaders } from '@/lib/apiClient'; // Added import
 
 type Supplier = {
   _id: string;
@@ -26,14 +27,10 @@ export default function SuppliersPage() {
   async function loadSuppliers() {
     setLoading(true);
     try {
-      const token = localStorage.getItem('accessToken');
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/suppliers`,
         {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: authHeaders(), // Using authHeaders instead of manual token handling
         },
       );
 
@@ -64,7 +61,7 @@ export default function SuppliersPage() {
     } else {
       setFiltered(
         suppliers.filter((s) =>
-          [s.name, s.email, s.phone]
+          [s.name, s.email, s.phone, s.contactPerson] // Added contactPerson to search
             .filter(Boolean)
             .some((v) => v!.toLowerCase().includes(q)),
         ),
@@ -104,7 +101,7 @@ export default function SuppliersPage() {
                     Name
                   </th>
                   <th className="px-3 py-2 text-left font-medium">
-                    Contact
+                    Contact Person / Email
                   </th>
                   <th className="px-3 py-2 text-left font-medium">
                     Phone
@@ -123,13 +120,20 @@ export default function SuppliersPage() {
                       router.push(`/dashboard/suppliers/${s._id}`)
                     }
                   >
-                    <td className="px-3 py-2">{s.name}</td>
+                    <td className="px-3 py-2 font-medium">{s.name}</td>
                     <td className="px-3 py-2">
-                      {s.contactPerson || s.email || '—'}
+                      {s.contactPerson && (
+                        <div className="text-slate-300">{s.contactPerson}</div>
+                      )}
+                      {s.email && (
+                        <div className="text-xs text-slate-400">{s.email}</div>
+                      )}
+                      {!s.contactPerson && !s.email && '—'}
                     </td>
                     <td className="px-3 py-2">{s.phone || '—'}</td>
                     <td className="px-3 py-2">
                       {s.address?.slice(0, 40) || '—'}
+                      {s.address && s.address.length > 40 && '…'}
                     </td>
                   </tr>
                 ))}
@@ -148,9 +152,11 @@ export default function SuppliersPage() {
             </table>
           </div>
           {loading && (
-            <p className="text-[11px] text-slate-400 px-3 py-2">
-              Loading…
-            </p>
+            <div className="px-3 py-2">
+              <p className="text-[11px] text-slate-400 animate-pulse">
+                Loading suppliers…
+              </p>
+            </div>
           )}
         </div>
       </div>

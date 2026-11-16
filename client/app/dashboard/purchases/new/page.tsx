@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { authHeaders } from '@/lib/apiClient'; // Added import
 
 type Product = {
   _id: string;
@@ -16,6 +17,8 @@ type Product = {
 type Supplier = {
   _id: string;
   name: string;
+  email?: string;
+  phone?: string;
 };
 
 type Paginated<T> = {
@@ -75,11 +78,6 @@ export default function NewPurchasePage() {
   async function loadProducts(searchText = '') {
     setLoadingProducts(true);
     try {
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('accessToken')
-          : null;
-
       const params = new URLSearchParams();
       params.set('page', '1');
       params.set('limit', '50');
@@ -88,12 +86,13 @@ export default function NewPurchasePage() {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/products?${params.toString()}`,
         {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: authHeaders(), // Using authHeaders instead of manual token handling
         },
       );
+
+      if (!res.ok) {
+        throw new Error('Failed to load products');
+      }
 
       const data = (await res.json()) as Paginated<Product>;
       setProducts(Array.isArray(data.data) ? data.data : []);
@@ -108,11 +107,6 @@ export default function NewPurchasePage() {
   async function loadSuppliers(searchText = '') {
     setLoadingSuppliers(true);
     try {
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('accessToken')
-          : null;
-
       const params = new URLSearchParams();
       params.set('page', '1');
       params.set('limit', '50');
@@ -121,12 +115,13 @@ export default function NewPurchasePage() {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/suppliers?${params.toString()}`,
         {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: authHeaders(), // Using authHeaders instead of manual token handling
         },
       );
+
+      if (!res.ok) {
+        throw new Error('Failed to load suppliers');
+      }
 
       const raw = await res.json();
 
@@ -216,6 +211,15 @@ export default function NewPurchasePage() {
   const taxTotal = 0;
   const grandTotal = subtotal + taxTotal - discountTotal;
 
+  function formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('en-KE', {
+      style: 'currency',
+      currency: 'KES',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  }
+
   async function handleSubmit() {
     try {
       setError(null);
@@ -238,19 +242,11 @@ export default function NewPurchasePage() {
         })),
       };
 
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('accessToken')
-          : null;
-
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/purchases`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: authHeaders(), // Using authHeaders instead of manual token handling
           body: JSON.stringify(payload),
         },
       );
@@ -290,113 +286,122 @@ export default function NewPurchasePage() {
             <h2 className="text-lg font-semibold tracking-tight">
               Products
             </h2>
-            <Input
-              placeholder="Search products..."
-              className="h-8 w-44 text-xs"
-              value={productSearch}
-              onChange={(e) => {
-                const v = e.target.value;
-                setProductSearch(v);
-                loadProducts(v);
-              }}
-            />
+            <div className="relative">
+              <Input
+                placeholder="Search products..."
+                className="h-8 w-44 text-xs pl-7"
+                value={productSearch}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setProductSearch(v);
+                  loadProducts(v);
+                }}
+              />
+              <svg className="absolute left-2 top-2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
           </div>
 
           <div className="rounded-lg border border-slate-800 bg-slate-900/40 flex-1 overflow-auto">
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 border-b border-slate-800 bg-slate-900/95">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium">
-                    Name
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium">
-                    SKU
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium">
-                    Cost
-                  </th>
-                  <th className="px-3 py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((p) => (
-                  <tr
-                    key={p._id}
-                    className="border-b border-slate-800/60 hover:bg-slate-800/40"
-                  >
-                    <td className="px-3 py-2">{p.name}</td>
-                    <td className="px-3 py-2">{p.sku || '—'}</td>
-                    <td className="px-3 py-2 text-right">
-                      {p.costPrice != null
-                        ? `KSh ${p.costPrice}`
-                        : '—'}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 px-2 text-[10px]"
-                        onClick={() => addProductToItems(p)}
-                      >
-                        Add
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                {!products.length && !loadingProducts && (
+            {loadingProducts && (
+              <div className="flex items-center justify-center py-8">
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent"></div>
+                  <p className="text-xs text-slate-400">Loading products…</p>
+                </div>
+              </div>
+            )}
+            
+            {!loadingProducts && (
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 border-b border-slate-800 bg-slate-900/95">
                   <tr>
-                    <td
-                      colSpan={4}
-                      className="px-3 py-4 text-center text-slate-500"
-                    >
-                      No products found.
-                    </td>
+                    <th className="px-3 py-2 text-left font-medium">Name</th>
+                    <th className="px-3 py-2 text-left font-medium">SKU</th>
+                    <th className="px-3 py-2 text-right font-medium">Cost</th>
+                    <th className="px-3 py-2 text-right font-medium">Action</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {products.map((p) => (
+                    <tr
+                      key={p._id}
+                      className="border-b border-slate-800/60 hover:bg-slate-800/40 transition-colors"
+                    >
+                      <td className="px-3 py-2 font-medium">{p.name}</td>
+                      <td className="px-3 py-2 font-mono text-xs text-slate-400">
+                        {p.sku || '—'}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono">
+                        {p.costPrice != null
+                          ? formatCurrency(p.costPrice)
+                          : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[10px]"
+                          onClick={() => addProductToItems(p)}
+                        >
+                          Add
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!products.length && (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-3 py-8 text-center text-slate-500"
+                      >
+                        {productSearch ? 'No products match your search.' : 'No products found.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
         {/* MIDDLE: Purchase items */}
         <div className="w-[35%] flex flex-col space-y-3 min-w-0 bg-slate-950/60 p-4 border border-slate-800 rounded-lg">
-          <h2 className="text-lg font-semibold tracking-tight flex-shrink-0">
-            Purchase Items
-          </h2>
+          <div className="flex items-center justify-between flex-shrink-0">
+            <h2 className="text-lg font-semibold tracking-tight">
+              Purchase Items
+            </h2>
+            {items.length > 0 && (
+              <span className="text-xs text-slate-400">
+                {items.length} item{items.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
 
           <div className="rounded-lg border border-slate-800 bg-slate-900/40 h-72 overflow-auto flex-shrink-0">
             <table className="w-full text-xs">
               <thead className="sticky top-0 border-b border-slate-800 bg-slate-900/95">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium">
-                    Item
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium">
-                    Qty
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium">
-                    Cost
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium">
-                    Disc
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium">
-                    Total
-                  </th>
-                  <th className="px-3 py-2" />
+                  <th className="px-3 py-2 text-left font-medium">Item</th>
+                  <th className="px-3 py-2 text-right font-medium">Qty</th>
+                  <th className="px-3 py-2 text-right font-medium">Cost</th>
+                  <th className="px-3 py-2 text-right font-medium">Disc</th>
+                  <th className="px-3 py-2 text-right font-medium">Total</th>
+                  <th className="px-3 py-2 text-right font-medium"></th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item) => (
                   <tr
                     key={item.productId}
-                    className="border-b border-slate-800/60"
+                    className="border-b border-slate-800/60 hover:bg-slate-800/20"
                   >
                     <td className="px-3 py-2">
                       <div className="flex flex-col">
-                        <span>{item.name}</span>
+                        <span className="font-medium">{item.name}</span>
                         {item.sku && (
-                          <span className="text-[10px] text-slate-500">
+                          <span className="text-[9px] text-slate-500">
                             {item.sku}
                           </span>
                         )}
@@ -406,13 +411,13 @@ export default function NewPurchasePage() {
                       <Input
                         type="number"
                         min={1}
-                        className="h-7 w-16 text-right text-[11px]"
+                        className="h-7 w-16 text-right text-[11px] mx-auto"
                         value={item.quantity}
                         onChange={(e) =>
                           updateItem(
                             item.productId,
                             'quantity',
-                            e.target.valueAsNumber || 1,
+                            Math.max(1, e.target.valueAsNumber || 1),
                           )
                         }
                       />
@@ -422,13 +427,13 @@ export default function NewPurchasePage() {
                         type="number"
                         min={0}
                         step="0.01"
-                        className="h-7 w-20 text-right text-[11px]"
+                        className="h-7 w-20 text-right text-[11px] mx-auto"
                         value={item.unitCost}
                         onChange={(e) =>
                           updateItem(
                             item.productId,
                             'unitCost',
-                            e.target.valueAsNumber || 0,
+                            Math.max(0, e.target.valueAsNumber || 0),
                           )
                         }
                       />
@@ -438,31 +443,30 @@ export default function NewPurchasePage() {
                         type="number"
                         min={0}
                         step="0.01"
-                        className="h-7 w-20 text-right text-[11px]"
+                        className="h-7 w-20 text-right text-[11px] mx-auto"
                         value={item.discountAmount || 0}
                         onChange={(e) =>
                           updateItem(
                             item.productId,
                             'discountAmount',
-                            e.target.valueAsNumber || 0,
+                            Math.max(0, e.target.valueAsNumber || 0),
                           )
                         }
                       />
                     </td>
-                    <td className="px-3 py-2 text-right">
-                      KSh{' '}
-                      {(
-                        item.unitCost * item.quantity -
-                        (item.discountAmount || 0)
-                      ).toFixed(2)}
+                    <td className="px-3 py-2 text-right font-mono font-medium">
+                      {formatCurrency(
+                        item.unitCost * item.quantity - (item.discountAmount || 0)
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right">
                       <button
                         type="button"
-                        className="text-[11px] text-rose-400 hover:text-rose-300"
+                        className="text-[11px] text-rose-400 hover:text-rose-300 transition-colors px-1"
                         onClick={() => removeItem(item.productId)}
+                        title="Remove item"
                       >
-                        ×
+                        ✕
                       </button>
                     </td>
                   </tr>
@@ -471,9 +475,14 @@ export default function NewPurchasePage() {
                   <tr>
                     <td
                       colSpan={6}
-                      className="px-3 py-4 text-center text-slate-500"
+                      className="px-3 py-8 text-center text-slate-500"
                     >
-                      No items added yet.
+                      <div className="flex flex-col items-center gap-1">
+                        <span>No items added yet.</span>
+                        <span className="text-[10px] text-slate-600">
+                          Click "Add" next to a product to include it.
+                        </span>
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -485,20 +494,20 @@ export default function NewPurchasePage() {
             <div className="space-y-1.5">
               <div className="flex justify-between">
                 <span className="text-slate-400">Subtotal</span>
-                <span>KSh {subtotal.toFixed(2)}</span>
+                <span className="font-mono">{formatCurrency(subtotal)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Discounts</span>
-                <span>KSh {discountTotal.toFixed(2)}</span>
+                <span className="font-mono text-amber-400">-{formatCurrency(discountTotal)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Tax</span>
-                <span>KSh {taxTotal.toFixed(2)}</span>
+                <span className="font-mono text-slate-400">{formatCurrency(taxTotal)}</span>
               </div>
-              <div className="flex justify-between text-sm font-semibold pt-1 border-t border-slate-800">
+              <div className="flex justify-between text-sm font-semibold pt-2 border-t border-slate-800">
                 <span>Total</span>
-                <span className="text-emerald-400">
-                  KSh {grandTotal.toFixed(2)}
+                <span className="text-emerald-400 font-mono">
+                  {formatCurrency(grandTotal)}
                 </span>
               </div>
             </div>
@@ -508,14 +517,12 @@ export default function NewPurchasePage() {
         {/* RIGHT: Supplier & submit */}
         <div className="w-[25%] flex flex-col space-y-3 min-w-0 bg-slate-950/60 p-4 border border-slate-800 rounded-lg">
           <h2 className="text-lg font-semibold tracking-tight flex-shrink-0">
-            Supplier &amp; Details
+            Supplier & Details
           </h2>
 
           <div className="space-y-3 text-xs">
             <div className="space-y-1">
-              <label className="text-[11px] text-slate-400">
-                Supplier
-              </label>
+              <label className="text-[11px] text-slate-400">Supplier</label>
               <select
                 className="h-8 w-full rounded-md border border-slate-700 bg-slate-900 text-xs px-2"
                 value={supplierId}
@@ -531,25 +538,29 @@ export default function NewPurchasePage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] text-slate-400">
-                Filter suppliers
-              </label>
-              <Input
-                className="h-8 text-xs"
-                placeholder="Search suppliers..."
-                value={supplierSearch}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setSupplierSearch(v);
-                  loadSuppliers(v);
-                }}
-              />
+              <label className="text-[11px] text-slate-400">Search suppliers</label>
+              <div className="relative">
+                <Input
+                  className="h-8 text-xs pl-7"
+                  placeholder="Filter suppliers..."
+                  value={supplierSearch}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setSupplierSearch(v);
+                    loadSuppliers(v);
+                  }}
+                />
+                <svg className="absolute left-2 top-2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              {loadingSuppliers && (
+                <p className="text-[10px] text-slate-500">Loading suppliers...</p>
+              )}
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] text-slate-400">
-                Reference
-              </label>
+              <label className="text-[11px] text-slate-400">Reference</label>
               <Input
                 className="h-8 text-xs"
                 placeholder="Invoice / PO number (optional)"
@@ -559,9 +570,7 @@ export default function NewPurchasePage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] text-slate-400">
-                Status
-              </label>
+              <label className="text-[11px] text-slate-400">Status</label>
               <select
                 className="h-8 w-full rounded-md border border-slate-700 bg-slate-900 text-xs px-2"
                 value={status}
@@ -578,23 +587,41 @@ export default function NewPurchasePage() {
           </div>
 
           {error && (
-            <p className="text-xs text-rose-400 bg-rose-950/40 border border-rose-900 rounded-md px-2 py-1">
-              {error}
-            </p>
+            <div className="text-xs text-rose-400 bg-rose-950/40 border border-rose-900 rounded-md px-2 py-1 flex items-center gap-1">
+              <svg className="h-3 w-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{error}</span>
+            </div>
           )}
           {successRef && (
-            <p className="text-xs text-emerald-400 bg-emerald-950/20 border border-emerald-900 rounded-md px-2 py-1">
+            <div className="text-xs text-emerald-400 bg-emerald-950/20 border border-emerald-900 rounded-md px-2 py-1">
               Purchase created. Ref: {successRef}
-            </p>
+            </div>
           )}
 
-          <div className="mt-auto">
+          <div className="mt-auto pt-3">
             <Button
               className="w-full h-9 text-sm"
               disabled={saving || !items.length}
               onClick={handleSubmit}
             >
-              {saving ? 'Saving…' : 'Create Purchase'}
+              {saving ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Saving...
+                </span>
+              ) : (
+                'Create Purchase Order'
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-8 text-xs mt-2"
+              onClick={() => router.back()}
+            >
+              Cancel
             </Button>
           </div>
         </div>

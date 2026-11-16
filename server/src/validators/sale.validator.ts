@@ -18,6 +18,14 @@ export const createSaleSchema = z.object({
   paidAmount: z.number().nonnegative(),
   reference: z.string().max(100).optional(),
   status: z.enum(['OPEN', 'COMPLETED', 'VOID']).optional(),
+
+  // Restaurant fields
+  type: z
+    .enum(['DINE_IN', 'TAKEAWAY', 'DELIVERY'])
+    .default('TAKEAWAY'),
+  tableId: z.string().min(1).optional(),
+  covers: z.number().int().positive().optional(),
+  notes: z.string().max(500).optional(),
 });
 
 export const updateSaleSchema = createSaleSchema.partial();

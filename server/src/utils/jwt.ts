@@ -1,10 +1,13 @@
+// src/utils/jwt.ts
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { env } from '../config/env';
+import { PlatformRole, TenantRole } from '../middleware/authMiddleware';
 
 export interface JwtPayload {
   userId: string;
   tenantId: string;
-  role: 'OWNER' | 'ADMIN' | 'MANAGER' | 'CASHIER';
+  role: TenantRole;
+  platformRole?: PlatformRole;
 }
 
 const accessTokenOptions: SignOptions = {

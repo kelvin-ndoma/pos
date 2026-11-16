@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { createPosSale, PosCartItem } from '@/lib/pos';
+import { authHeaders } from '@/lib/apiClient';
+
 
 type Product = {
   _id: string;
@@ -49,11 +51,8 @@ export default function PosPage() {
 
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/products?${params.toString()}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+           {
+          headers: authHeaders(),
         },
       );
 

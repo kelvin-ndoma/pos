@@ -20,6 +20,7 @@ const productSchema = new Schema<IProduct, ProductModel>(
     // Net price (VAT-exclusive). Tax will be added on sale.
     salePrice: { type: Number, required: true },
     quantityOnHand: { type: Number, default: 0 },
+    reorderLevel: { type: Number, default: 5 },
     taxRule: { type: Schema.Types.ObjectId, ref: 'TaxRule' },
     isActive: { type: Boolean, default: true },
     trackInventory: { type: Boolean, default: true },

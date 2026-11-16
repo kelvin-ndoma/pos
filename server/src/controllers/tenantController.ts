@@ -1,10 +1,16 @@
 // src/controllers/tenantController.ts
 import { Request, Response } from 'express';
 import { tenantService } from '../services/tenantService';
+import { TenantRequest } from '../middleware/tenantMiddleware';
 
 export const getTenant = async (req: Request, res: Response) => {
   try {
+    const tReq = req as TenantRequest;
     const id = req.params.id as string;
+
+    if (id !== tReq.tenantId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
     const tenant = await tenantService.getTenantById(id);
 
@@ -20,10 +26,11 @@ export const getTenant = async (req: Request, res: Response) => {
   }
 };
 
-export const listTenants = async (_req: Request, res: Response) => {
+export const listTenants = async (req: Request, res: Response) => {
   try {
-    const tenants = await tenantService.listTenants();
-    return res.json(tenants);
+    const tReq = req as TenantRequest;
+    const tenant = await tenantService.getTenantById(tReq.tenantId);
+    return res.json(tenant ? [tenant] : []);
   } catch (error: any) {
     return res
       .status(500)
@@ -33,7 +40,12 @@ export const listTenants = async (_req: Request, res: Response) => {
 
 export const updateTenant = async (req: Request, res: Response) => {
   try {
+    const tReq = req as TenantRequest;
     const id = req.params.id as string;
+
+    if (id !== tReq.tenantId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
     const tenant = await tenantService.updateTenant(id, req.body);
 

@@ -22,7 +22,7 @@ const userSchema = new Schema<IUser, UserModel>(
     passwordHash: { type: String, required: true },
     role: {
       type: String,
-      enum: ['OWNER', 'ADMIN', 'MANAGER', 'CASHIER'],
+      enum: ['OWNER', 'ADMIN', 'MANAGER', 'CASHIER', 'VIEWER'],
       default: 'OWNER',
     },
     status: {
@@ -30,6 +30,13 @@ const userSchema = new Schema<IUser, UserModel>(
       enum: ['ACTIVE', 'INVITED', 'SUSPENDED'],
       default: 'ACTIVE',
     },
+    platformRole: {
+      type: String,
+      enum: ['PLATFORM_OWNER', 'PLATFORM_ADMIN', 'PLATFORM_SUPPORT', 'NONE'],
+      default: 'NONE',
+    },
+    inviteToken: { type: String, default: null },
+    inviteExpiresAt: { type: Date, default: null },
     lastLoginAt: { type: Date },
   },
   {

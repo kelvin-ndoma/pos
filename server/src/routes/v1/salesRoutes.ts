@@ -9,6 +9,8 @@ import {
   getSale,
   createSale,
   updateSale,
+  completeSale,
+  voidSale,
 } from '../../controllers/salesController';
 import { PERMISSIONS } from '../../constants/permissions';
 import {
@@ -20,18 +22,21 @@ const router = Router();
 
 router.use(authMiddleware, tenantMiddleware);
 
+// GET /api/v1/sales - List all sales
 router.get(
   '/',
   requirePermission(PERMISSIONS.SALE_READ),
   listSales,
 );
 
+// GET /api/v1/sales/:id - Get single sale
 router.get(
   '/:id',
   requirePermission(PERMISSIONS.SALE_READ),
   getSale,
 );
 
+// POST /api/v1/sales - Create new sale
 router.post(
   '/',
   requirePermission(PERMISSIONS.SALE_CREATE),
@@ -39,12 +44,34 @@ router.post(
   createSale,
 );
 
-// For now, reuse SALE_CREATE for update/void, or drop permission if preferred
+// PUT /api/v1/sales/:id - Full update
 router.put(
   '/:id',
   requirePermission(PERMISSIONS.SALE_CREATE),
   validateBody(updateSaleSchema),
   updateSale,
+);
+
+// PATCH /api/v1/sales/:id - Partial update
+router.patch(
+  '/:id',
+  requirePermission(PERMISSIONS.SALE_CREATE),
+  validateBody(updateSaleSchema),
+  updateSale,
+);
+
+// POST /api/v1/sales/:id/complete - Complete payment
+router.post(
+  '/:id/complete',
+  requirePermission(PERMISSIONS.SALE_CREATE),
+  completeSale,
+);
+
+// POST /api/v1/sales/:id/void - Void sale
+router.post(
+  '/:id/void',
+  requirePermission(PERMISSIONS.SALE_CREATE),
+  voidSale,
 );
 
 export default router;

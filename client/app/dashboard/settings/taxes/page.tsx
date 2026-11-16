@@ -4,6 +4,7 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { authHeaders } from '@/lib/apiClient'; // Added import
 
 type TaxRule = {
   _id: string;
@@ -21,6 +22,12 @@ type FormState = {
   type: 'STANDARD' | 'ZERO_RATED' | 'EXEMPT';
   rate: string;
   isDefault: boolean;
+};
+
+const TAX_TYPE_LABELS: Record<string, string> = {
+  STANDARD: 'Standard (taxable)',
+  ZERO_RATED: 'Zero-rated (0%)',
+  EXEMPT: 'Exempt',
 };
 
 export default function TaxSettingsPage() {
@@ -44,17 +51,10 @@ export default function TaxSettingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('accessToken')
-          : null;
-
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/tax`,
         {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: authHeaders(), // Using authHeaders instead of manual token handling
         },
       );
 
@@ -109,21 +109,22 @@ export default function TaxSettingsPage() {
     setSaving(true);
 
     try {
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('accessToken')
-          : null;
-
       const payload = {
         name: form.name.trim(),
-        code: form.code.trim(),
+        code: form.code.trim().toUpperCase(),
         type: form.type,
         rate: Number(form.rate),
         isDefault: form.isDefault,
       };
 
-      if (!payload.name || !payload.code || isNaN(payload.rate)) {
-        throw new Error('Name, code and rate are required');
+      if (!payload.name) {
+        throw new Error('Name is required');
+      }
+      if (!payload.code) {
+        throw new Error('Code is required');
+      }
+      if (isNaN(payload.rate) || payload.rate < 0 || payload.rate > 100) {
+        throw new Error('Rate must be a number between 0 and 100');
       }
 
       const url = isEditing
@@ -134,10 +135,7 @@ export default function TaxSettingsPage() {
 
       const res = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: authHeaders(), // Using authHeaders instead of manual token handling
         body: JSON.stringify(payload),
       });
 
@@ -147,7 +145,7 @@ export default function TaxSettingsPage() {
         throw new Error(body.error || 'Failed to save tax rule');
       }
 
-      setSuccess(isEditing ? 'Tax rule updated' : 'Tax rule created');
+      setSuccess(isEditing ? 'Tax rule updated successfully' : 'Tax rule created successfully');
       await loadRules();
       resetForm();
     } catch (e: any) {
@@ -181,7 +179,7 @@ export default function TaxSettingsPage() {
             <button
               type="button"
               onClick={resetForm}
-              className="text-[11px] text-slate-400 hover:text-slate-200"
+              className="text-[11px] text-slate-400 hover:text-slate-200 transition-colors"
             >
               Cancel edit
             </button>
@@ -194,7 +192,7 @@ export default function TaxSettingsPage() {
               htmlFor="name"
               className="block text-xs font-medium text-slate-200"
             >
-              Name
+              Name <span className="text-rose-400">*</span>
             </label>
             <Input
               id="name"
@@ -203,6 +201,7 @@ export default function TaxSettingsPage() {
                 setForm((f) => ({ ...f, name: e.target.value }))
               }
               placeholder="VAT 16%"
+              required
             />
           </div>
 
@@ -211,15 +210,16 @@ export default function TaxSettingsPage() {
               htmlFor="code"
               className="block text-xs font-medium text-slate-200"
             >
-              Code
+              Code <span className="text-rose-400">*</span>
             </label>
             <Input
               id="code"
               value={form.code}
               onChange={(e) =>
-                setForm((f) => ({ ...f, code: e.target.value }))
+                setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))
               }
               placeholder="VAT16"
+              required
             />
           </div>
         </div>
@@ -232,21 +232,26 @@ export default function TaxSettingsPage() {
             >
               Type
             </label>
-            <select
-              id="type"
-              className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50"
-              value={form.type}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  type: e.target.value as FormState['type'],
-                }))
-              }
-            >
-              <option value="STANDARD">Standard (taxable)</option>
-              <option value="ZERO_RATED">Zero-rated (0%)</option>
-              <option value="EXEMPT">Exempt</option>
-            </select>
+            <div className="relative">
+              <select
+                id="type"
+                className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 appearance-none"
+                value={form.type}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    type: e.target.value as FormState['type'],
+                  }))
+                }
+              >
+                <option value="STANDARD">Standard (taxable)</option>
+                <option value="ZERO_RATED">Zero-rated (0%)</option>
+                <option value="EXEMPT">Exempt</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                ▼
+              </div>
+            </div>
           </div>
 
           <div className="space-y-1">
@@ -254,7 +259,7 @@ export default function TaxSettingsPage() {
               htmlFor="rate"
               className="block text-xs font-medium text-slate-200"
             >
-              Rate (%)
+              Rate (%) <span className="text-rose-400">*</span>
             </label>
             <Input
               id="rate"
@@ -267,11 +272,12 @@ export default function TaxSettingsPage() {
                 setForm((f) => ({ ...f, rate: e.target.value }))
               }
               placeholder="16"
+              required
             />
           </div>
 
-          <div className="flex items-end space-y-1">
-            <label className="inline-flex items-center gap-2 text-xs text-slate-200">
+          <div className="flex items-end pb-1">
+            <label className="inline-flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.isDefault}
@@ -281,6 +287,7 @@ export default function TaxSettingsPage() {
                     isDefault: e.target.checked,
                   }))
                 }
+                className="rounded border-slate-600 bg-slate-900 text-blue-500 focus:ring-0 focus:ring-offset-0"
               />
               Default for new products
             </label>
@@ -300,13 +307,16 @@ export default function TaxSettingsPage() {
 
         <div className="flex justify-end">
           <Button type="submit" size="sm" disabled={saving}>
-            {saving
-              ? isEditing
-                ? 'Updating…'
-                : 'Creating…'
-              : isEditing
-              ? 'Update rule'
-              : 'Create rule'}
+            {saving ? (
+              <span className="flex items-center gap-1">
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                {isEditing ? 'Updating…' : 'Creating…'}
+              </span>
+            ) : isEditing ? (
+              'Update rule'
+            ) : (
+              'Create rule'
+            )}
           </Button>
         </div>
       </form>
@@ -321,59 +331,71 @@ export default function TaxSettingsPage() {
         </div>
 
         {loading ? (
-          <p className="text-xs text-slate-400">Loading…</p>
+          <div className="flex items-center justify-center py-8">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent"></div>
+              <p className="text-xs text-slate-400">Loading tax rules…</p>
+            </div>
+          </div>
         ) : !rules.length ? (
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-400 py-4 text-center">
             No tax rules yet. Create one above.
           </p>
         ) : (
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-slate-800">
-                <th className="py-2 text-left font-medium">Name</th>
-                <th className="py-2 text-left font-medium">Code</th>
-                <th className="py-2 text-left font-medium">Type</th>
-                <th className="py-2 text-right font-medium">Rate %</th>
-                <th className="py-2 text-center font-medium">
-                  Default
-                </th>
-                <th className="py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {rules.map((rule) => (
-                <tr
-                  key={rule._id}
-                  className="border-b border-slate-900/60"
-                >
-                  <td className="py-2">{rule.name}</td>
-                  <td className="py-2">{rule.code}</td>
-                  <td className="py-2">
-                    {rule.type === 'STANDARD'
-                      ? 'Standard'
-                      : rule.type === 'ZERO_RATED'
-                      ? 'Zero-rated'
-                      : 'Exempt'}
-                  </td>
-                  <td className="py-2 text-right">
-                    {rule.rate.toFixed(2)}
-                  </td>
-                  <td className="py-2 text-center">
-                    {rule.isDefault ? '✓' : ''}
-                  </td>
-                  <td className="py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(rule)}
-                      className="text-[11px] text-slate-400 hover:text-slate-100"
-                    >
-                      Edit
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-slate-800">
+                  <th className="py-2 text-left font-medium">Name</th>
+                  <th className="py-2 text-left font-medium">Code</th>
+                  <th className="py-2 text-left font-medium">Type</th>
+                  <th className="py-2 text-right font-medium">Rate %</th>
+                  <th className="py-2 text-center font-medium">Default</th>
+                  <th className="py-2 text-right font-medium">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rules.map((rule) => (
+                  <tr
+                    key={rule._id}
+                    className="border-b border-slate-900/60 hover:bg-slate-800/20 transition-colors"
+                  >
+                    <td className="py-2">{rule.name}</td>
+                    <td className="py-2 font-mono text-xs">{rule.code}</td>
+                    <td className="py-2">
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium
+                        ${rule.type === 'STANDARD' ? 'bg-blue-950/40 text-blue-300 border border-blue-800' : ''}
+                        ${rule.type === 'ZERO_RATED' ? 'bg-green-950/40 text-green-300 border border-green-800' : ''}
+                        ${rule.type === 'EXEMPT' ? 'bg-slate-800 text-slate-300 border border-slate-700' : ''}
+                      `}>
+                        {rule.type === 'STANDARD' ? 'Standard' : 
+                         rule.type === 'ZERO_RATED' ? 'Zero-rated' : 'Exempt'}
+                      </span>
+                    </td>
+                    <td className="py-2 text-right font-mono">
+                      {rule.rate.toFixed(2)}%
+                    </td>
+                    <td className="py-2 text-center">
+                      {rule.isDefault ? (
+                        <span className="text-emerald-400 text-sm">✓</span>
+                      ) : (
+                        <span className="text-slate-600">—</span>
+                      )}
+                    </td>
+                    <td className="py-2 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(rule)}
+                        className="text-[11px] text-slate-400 hover:text-slate-100 transition-colors px-2 py-1 rounded hover:bg-slate-800"
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

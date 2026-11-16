@@ -18,7 +18,7 @@ export default function HomePage() {
 
           <div className="flex items-center gap-3">
             <Link
-              href="/auth/signup"
+              href="/auth/register"
               className="hidden sm:inline-flex text-sm text-slate-300 hover:text-white transition-colors"
             >
               Sign up
@@ -56,7 +56,7 @@ export default function HomePage() {
               Login to dashboard
             </Link>
             <Link
-              href="/auth/signup"
+              href="/auth/register"
               className="inline-flex items-center rounded-md border border-slate-700 px-5 py-2.5 text-sm font-medium text-slate-100 hover:border-slate-500 hover:bg-slate-900/40 transition-colors"
             >
               Start free trial

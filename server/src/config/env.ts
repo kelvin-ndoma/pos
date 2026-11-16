@@ -25,7 +25,8 @@ export const env = {
   PORT: Number(process.env.PORT || 3000),
 
   // db
-  MONGODB_URI: required('MONGODB_URI'),
+  MONGODB_URI: process.env.MONGODB_URI || '',
+  USE_IN_MEMORY_DB: process.env.USE_IN_MEMORY_DB === 'true',
 
  // jwt
 JWT_SECRET: required('JWT_SECRET'),

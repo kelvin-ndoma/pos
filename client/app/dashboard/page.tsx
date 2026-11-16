@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { KpiCard } from '@/components/charts/KpiCard';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
+import { authHeaders } from '@/lib/apiClient';
+
 
 type DashboardSummary = {
   stockValue: number;
@@ -38,11 +40,8 @@ export default function DashboardPage() {
 
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/dashboard/summary`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+         {
+          headers: authHeaders(),
         },
       );
 

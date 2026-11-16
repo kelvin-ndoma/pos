@@ -14,9 +14,11 @@ import taxRoutes from './taxRoutes';
 import reportRoutes from './reportRoutes';
 import posRoutes from './posRoutes';
 import dashboardRoutes from './dashboardRoutes';
-
-
-// add any others you have, e.g. inventoryRoutes, auditRoutes, etc.
+import tenantUserRoutes from './tenantUserRoutes';
+import platformRoutes from './platformRoutes';
+import kitchenRoutes from './kitchenRoutes';
+import tableRoutes from './tableRoutes';
+import inventoryRoutes from './inventoryRoutes';
 
 const router = Router();
 
@@ -33,6 +35,15 @@ router.use('/sales', saleRoutes);
 router.use('/purchases', purchaseRoutes);
 router.use('/tax', taxRoutes);
 router.use('/reports', reportRoutes);
+router.use('/tenant-users', tenantUserRoutes);
+router.use('/platform', platformRoutes); // <-- new
+router.use('/kitchen', kitchenRoutes);
+router.use('/tables', tableRoutes);
+router.use('/inventory', inventoryRoutes);
+
+
+
+
 
 // export v1 router
 export default router;

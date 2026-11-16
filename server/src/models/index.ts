@@ -14,3 +14,6 @@ export * from './Inventory';
 export * from './Payment';
 export * from './AuditLog';
 export * from './Notification';
+export * from './TenantUser';
+export * from './Table';
+

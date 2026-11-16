@@ -2,6 +2,10 @@
 import { Request, Response } from 'express';
 import { saleService } from '../services/saleService';
 import { TenantRequest } from '../middleware/tenantMiddleware';
+import {
+  CreateSaleInput,
+  UpdateSaleInput,
+} from '../validators/sale.validator';
 
 export const listSales = async (req: Request, res: Response) => {
   try {
@@ -59,9 +63,15 @@ export const createSale = async (req: Request, res: Response) => {
         .json({ error: 'User not resolved from token' });
     }
 
+    // req.body has already been validated against createSaleSchema (zod)
+    const body = req.body as CreateSaleInput;
+
     const sale = await saleService.createSale(tenantId, {
-      ...req.body,
+      ...body,
       userId,
+      // body already includes:
+      // customerId, items, paidAmount, reference, status,
+      // type, tableId, covers, notes
     });
 
     return res.status(201).json(sale);
@@ -77,7 +87,9 @@ export const updateSale = async (req: Request, res: Response) => {
     const { tenantId } = req as TenantRequest;
     const id = req.params.id as string;
 
-    const sale = await saleService.updateSale(tenantId, id, req.body);
+    const body = req.body as UpdateSaleInput;
+
+    const sale = await saleService.updateSale(tenantId, id, body);
 
     if (!sale) {
       return res.status(404).json({ error: 'Sale not found' });
@@ -88,5 +100,65 @@ export const updateSale = async (req: Request, res: Response) => {
     return res
       .status(400)
       .json({ error: error.message || 'Failed to update sale' });
+  }
+};
+
+/**
+ * Complete a sale (mark as paid)
+ * Dedicated endpoint for completing payment on an open order
+ */
+export const completeSale = async (req: Request, res: Response) => {
+  try {
+    const { tenantId } = req as TenantRequest;
+    const id = req.params.id as string;
+    const { paidAmount } = req.body;
+
+    if (paidAmount === undefined || paidAmount === null) {
+      return res.status(400).json({ error: 'paidAmount is required' });
+    }
+
+    if (typeof paidAmount !== 'number' || paidAmount < 0) {
+      return res.status(400).json({ error: 'paidAmount must be a positive number' });
+    }
+
+    const sale = await saleService.updateSale(tenantId, id, {
+      status: 'COMPLETED',
+      paidAmount,
+    });
+
+    if (!sale) {
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+
+    return res.json(sale);
+  } catch (error: any) {
+    return res
+      .status(400)
+      .json({ error: error.message || 'Failed to complete sale' });
+  }
+};
+
+/**
+ * Void a sale (cancel/refund)
+ * Dedicated endpoint for voiding a sale
+ */
+export const voidSale = async (req: Request, res: Response) => {
+  try {
+    const { tenantId } = req as TenantRequest;
+    const id = req.params.id as string;
+
+    const sale = await saleService.updateSale(tenantId, id, {
+      status: 'VOID',
+    });
+
+    if (!sale) {
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+
+    return res.json(sale);
+  } catch (error: any) {
+    return res
+      .status(400)
+      .json({ error: error.message || 'Failed to void sale' });
   }
 };

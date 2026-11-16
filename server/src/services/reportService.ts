@@ -72,18 +72,10 @@ export const reportService = {
       query.category = new Types.ObjectId(filters.categoryId);
     }
 
-    // Filter by supplier if your Product schema has supplier reference
-    if (filters.supplierId) {
-      query.supplier = new Types.ObjectId(filters.supplierId);
-    }
-
-    // Low stock: quantityOnHand < reorderLevel and reorderLevel > 0
+    // Low stock: quantityOnHand below reorderLevel (default 5)
     if (filters.lowStockOnly) {
       query.$expr = {
-        $and: [
-          { $gt: ['$reorderLevel', 0] },
-          { $gt: ['$reorderLevel', '$quantityOnHand'] },
-        ],
+        $lt: ['$quantityOnHand', { $ifNull: ['$reorderLevel', 5] }],
       };
     }
 
@@ -98,7 +90,7 @@ export const reportService = {
       sku: p.sku,
       category: p.category,
       quantityOnHand: p.quantityOnHand,
-      reorderLevel: (p as any).reorderLevel ?? null,
+      reorderLevel: p.reorderLevel ?? 5,
       costPrice: p.costPrice,
       stockValue:
         (p.costPrice ?? 0) * (p.quantityOnHand ?? 0),

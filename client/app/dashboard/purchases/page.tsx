@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { authHeaders } from '@/lib/apiClient'; // Added import
 
 type PurchaseStatus = 'DRAFT' | 'ORDERED' | 'RECEIVED' | 'CANCELLED';
 
@@ -35,6 +36,14 @@ type PaginatedPurchases<T> = {
   total: number;
   totalPages: number;
 };
+
+const STATUS_OPTIONS = [
+  { value: 'ALL', label: 'All' },
+  { value: 'DRAFT', label: 'Draft' },
+  { value: 'ORDERED', label: 'Ordered' },
+  { value: 'RECEIVED', label: 'Received' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+];
 
 export default function PurchasesPage() {
   const router = useRouter();
@@ -75,11 +84,6 @@ export default function PurchasesPage() {
   async function loadPurchases(currentPage = page) {
     setLoading(true);
     try {
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('accessToken')
-          : null;
-
       const params = new URLSearchParams();
       params.set('page', String(currentPage));
       params.set('limit', String(limit));
@@ -91,11 +95,13 @@ export default function PurchasesPage() {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/purchases?${params.toString()}`,
         {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: authHeaders(), // Using authHeaders instead of manual token handling
         },
       );
+
+      if (!res.ok) {
+        throw new Error('Failed to load purchases');
+      }
 
       const data = (await res.json()) as PaginatedPurchases<PurchaseSummary>;
       setPurchases(Array.isArray(data.data) ? data.data : []);
@@ -137,41 +143,39 @@ export default function PurchasesPage() {
     router.push(`/dashboard/purchases/${id}`);
   }
 
+  function formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('en-KE', {
+      style: 'currency',
+      currency: 'KES',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  }
+
+  function formatDate(dateString: string): string {
+    return new Date(dateString).toLocaleString('en-KE', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
   function renderStatusPill(s: PurchaseStatus) {
     const base =
-      'text-[10px] px-2 py-0.5 rounded border inline-flex items-center';
-    if (s === 'RECEIVED') {
-      return (
-        <span
-          className={`${base} bg-emerald-950/40 text-emerald-400 border-emerald-900/40`}
-        >
-          RECEIVED
-        </span>
-      );
-    }
-    if (s === 'ORDERED') {
-      return (
-        <span
-          className={`${base} bg-sky-950/40 text-sky-400 border-sky-900/40`}
-        >
-          ORDERED
-        </span>
-      );
-    }
-    if (s === 'DRAFT') {
-      return (
-        <span
-          className={`${base} bg-slate-900 text-slate-300 border-slate-700`}
-        >
-          DRAFT
-        </span>
-      );
-    }
+      'text-[10px] px-2 py-0.5 rounded-full border inline-flex items-center font-medium';
+    
+    const styles = {
+      RECEIVED: 'bg-emerald-950/40 text-emerald-400 border-emerald-900/40',
+      ORDERED: 'bg-sky-950/40 text-sky-400 border-sky-900/40',
+      DRAFT: 'bg-slate-800 text-slate-300 border-slate-700',
+      CANCELLED: 'bg-rose-950/40 text-rose-400 border-rose-900/40',
+    };
+
     return (
-      <span
-        className={`${base} bg-rose-950/40 text-rose-400 border-rose-900/40`}
-      >
-        CANCELLED
+      <span className={`${base} ${styles[s]}`}>
+        {s}
       </span>
     );
   }
@@ -179,38 +183,57 @@ export default function PurchasesPage() {
   return (
     <div className="h-full w-full px-0 py-4">
       <div className="flex h-full w-full flex-col gap-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-semibold tracking-tight">
+            Purchase Orders
+          </h1>
+          <Button
+            className="h-8 text-xs"
+            onClick={() => router.push('/dashboard/purchases/new')}
+          >
+            New purchase order
+          </Button>
+        </div>
+
         {/* Filters */}
         <div className="flex flex-wrap items-end gap-3 bg-slate-950/70 border border-slate-800 rounded-lg p-4">
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 min-w-[200px]">
             <label className="text-[11px] text-slate-400">
               Search (reference or ID)
             </label>
             <Input
-              className="h-8 w-56 text-xs"
+              className="h-8 text-xs"
               placeholder="Search purchases..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
             />
           </div>
 
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 min-w-[120px]">
             <label className="text-[11px] text-slate-400">
               Status
             </label>
-            <select
-              className="h-8 w-40 rounded-md border border-slate-700 bg-slate-900 text-xs px-2"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="ALL">All</option>
-              <option value="DRAFT">Draft</option>
-              <option value="ORDERED">Ordered</option>
-              <option value="RECEIVED">Received</option>
-              <option value="CANCELLED">Cancelled</option>
-            </select>
+            <div className="relative">
+              <select
+                className="h-8 w-full rounded-md border border-slate-700 bg-slate-900 text-xs px-2 appearance-none"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                {STATUS_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                ▼
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 min-w-[130px]">
             <label className="text-[11px] text-slate-400">
               From date
             </label>
@@ -222,7 +245,7 @@ export default function PurchasesPage() {
             />
           </div>
 
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 min-w-[130px]">
             <label className="text-[11px] text-slate-400">
               To date
             </label>
@@ -240,7 +263,14 @@ export default function PurchasesPage() {
               disabled={loading}
               onClick={handleApplyFilters}
             >
-              {loading ? 'Loading…' : 'Apply'}
+              {loading ? (
+                <span className="flex items-center gap-1">
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Loading…
+                </span>
+              ) : (
+                'Apply filters'
+              )}
             </Button>
             <Button
               type="button"
@@ -254,112 +284,166 @@ export default function PurchasesPage() {
           </div>
         </div>
 
+        {/* Summary Cards */}
+        {!loading && purchases.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
+              <p className="text-[10px] text-slate-400 uppercase">Total Orders</p>
+              <p className="text-lg font-semibold text-white">{total}</p>
+            </div>
+            <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
+              <p className="text-[10px] text-slate-400 uppercase">Total Value</p>
+              <p className="text-lg font-semibold text-white">
+                {formatCurrency(purchases.reduce((sum, p) => sum + p.grandTotal, 0))}
+              </p>
+            </div>
+            <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
+              <p className="text-[10px] text-slate-400 uppercase">Pending Orders</p>
+              <p className="text-lg font-semibold text-white">
+                {purchases.filter(p => p.status === 'ORDERED').length}
+              </p>
+            </div>
+            <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
+              <p className="text-[10px] text-slate-400 uppercase">Received</p>
+              <p className="text-lg font-semibold text-white">
+                {purchases.filter(p => p.status === 'RECEIVED').length}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Table */}
         <div className="flex-1 rounded-lg border border-slate-800 bg-slate-950/60 overflow-hidden">
           <div className="overflow-auto max-h-full">
             <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-slate-900/95 border-b border-slate-800">
+              <thead className="sticky top-0 bg-slate-900/95 border-b border-slate-800 z-10">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium">
-                    Reference
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium">
-                    Supplier
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium">
-                    Date
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium">
-                    Subtotal
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium">
-                    Discount
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium">
-                    Total
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium">
-                    Status
-                  </th>
+                  <th className="px-3 py-2 text-left font-medium">Reference</th>
+                  <th className="px-3 py-2 text-left font-medium">Supplier</th>
+                  <th className="px-3 py-2 text-left font-medium">Date</th>
+                  <th className="px-3 py-2 text-right font-medium">Subtotal</th>
+                  <th className="px-3 py-2 text-right font-medium">Discount</th>
+                  <th className="px-3 py-2 text-right font-medium">Total</th>
+                  <th className="px-3 py-2 text-left font-medium">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {purchases.map((p) => (
-                  <tr
-                    key={p._id}
-                    className="border-b border-slate-800/60 hover:bg-slate-800/40 cursor-pointer"
-                    onClick={() => handleRowClick(p._id)}
-                  >
-                    <td className="px-3 py-2">
-                      {p.reference || p._id.slice(-8)}
-                    </td>
-                    <td className="px-3 py-2">
-                      {p.supplier?.name || '—'}
-                    </td>
-                    <td className="px-3 py-2">
-                      {new Date(p.createdAt).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      KSh {p.subtotal.toFixed(2)}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      KSh {p.discountTotal.toFixed(2)}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      KSh {p.grandTotal.toFixed(2)}
-                    </td>
-                    <td className="px-3 py-2">
-                      {renderStatusPill(p.status)}
-                    </td>
-                  </tr>
-                ))}
-
-                {!purchases.length && !loading && (
+                {loading ? (
                   <tr>
-                    <td
-                      colSpan={7}
-                      className="px-3 py-6 text-center text-slate-500"
-                    >
-                      No purchases found for the selected filters.
+                    <td colSpan={7} className="px-3 py-8">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent"></div>
+                        <p className="text-xs text-slate-400">Loading purchases…</p>
+                      </div>
                     </td>
                   </tr>
+                ) : purchases.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-3 py-8 text-center text-slate-500">
+                      {search || status !== 'ALL' || fromDate || toDate ? (
+                        <div className="flex flex-col items-center gap-1">
+                          <span>No purchases found for the selected filters.</span>
+                          <button
+                            onClick={handleResetFilters}
+                            className="text-[11px] text-blue-400 hover:text-blue-300 underline"
+                          >
+                            Clear filters
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2">
+                          <span>No purchase orders yet.</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push('/dashboard/purchases/new')}
+                            className="mt-2"
+                          >
+                            Create your first purchase order
+                          </Button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ) : (
+                  purchases.map((p) => (
+                    <tr
+                      key={p._id}
+                      className="border-b border-slate-800/60 hover:bg-slate-800/40 cursor-pointer transition-colors"
+                      onClick={() => handleRowClick(p._id)}
+                    >
+                      <td className="px-3 py-2 font-mono text-xs">
+                        {p.reference || p._id.slice(-8).toUpperCase()}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-300">{p.supplier?.name || '—'}</span>
+                          {p.user?.name && (
+                            <span className="text-[9px] text-slate-500">
+                              by {p.user.name}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-slate-300">
+                        {formatDate(p.createdAt)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-slate-300">
+                        {formatCurrency(p.subtotal)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-slate-400">
+                        {p.discountTotal > 0 ? formatCurrency(p.discountTotal) : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono font-medium">
+                        {formatCurrency(p.grandTotal)}
+                      </td>
+                      <td className="px-3 py-2">
+                        {renderStatusPill(p.status)}
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
           </div>
 
           {/* Pagination footer */}
-          <div className="flex items-center justify-between border-t border-slate-800 px-4 py-2 text-[11px] text-slate-400">
-            <span>
-              Showing page {page} of {totalPages} ({total} purchases)
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                className="h-7 px-2 text-[11px]"
-                disabled={page <= 1 || loading}
-                onClick={() => {
-                  const next = page - 1;
-                  setPage(next);
-                  loadPurchases(next);
-                }}
-              >
-                Prev
-              </Button>
-              <Button
-                variant="outline"
-                className="h-7 px-2 text-[11px]"
-                disabled={page >= totalPages || loading}
-                onClick={() => {
-                  const next = page + 1;
-                  setPage(next);
-                  loadPurchases(next);
-                }}
-              >
-                Next
-              </Button>
+          {totalPages > 0 && (
+            <div className="flex items-center justify-between border-t border-slate-800 px-4 py-2 text-[11px] text-slate-400">
+              <span>
+                Showing page {page} of {totalPages} ({total} total purchases)
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  className="h-7 px-2 text-[11px] min-w-[60px]"
+                  disabled={page <= 1 || loading}
+                  onClick={() => {
+                    const next = page - 1;
+                    setPage(next);
+                    loadPurchases(next);
+                  }}
+                >
+                  ← Prev
+                </Button>
+                <span className="px-2">
+                  {page} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  className="h-7 px-2 text-[11px] min-w-[60px]"
+                  disabled={page >= totalPages || loading}
+                  onClick={() => {
+                    const next = page + 1;
+                    setPage(next);
+                    loadPurchases(next);
+                  }}
+                >
+                  Next →
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

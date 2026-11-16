@@ -22,6 +22,7 @@ export interface IProduct {
   costPrice: number;
   salePrice: number;        // VAT exclusive price per unit
   quantityOnHand: number;
+  reorderLevel?: number;
   taxRule?: Types.ObjectId; // reference to TaxRule
   isActive: boolean;
   trackInventory: boolean;

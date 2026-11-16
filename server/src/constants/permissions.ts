@@ -1,11 +1,34 @@
 // src/constants/permissions.ts
 
-// 1. Roles
-export type UserRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'CASHIER';
+// 1. Platform & tenant roles
 
-export const ROLES: UserRole[] = ['OWNER', 'ADMIN', 'MANAGER', 'CASHIER'];
+// Platform roles – for SaaS owner and internal team
+export type PlatformRole =
+  | 'PLATFORM_OWNER'
+  | 'PLATFORM_ADMIN'
+  | 'PLATFORM_SUPPORT'
+  | 'NONE';
 
-// 2. Permission keys
+// Tenant roles – per organization (customer)
+export type TenantRole =
+  | 'OWNER'
+  | 'ADMIN'
+  | 'MANAGER'
+  | 'CASHIER'
+  | 'VIEWER';
+
+// Backwards compatible alias (existing code)
+export type UserRole = TenantRole;
+
+export const ROLES: UserRole[] = [
+  'OWNER',
+  'ADMIN',
+  'MANAGER',
+  'CASHIER',
+  'VIEWER',
+];
+
+// 2. Permission keys (unchanged)
 export const PERMISSIONS = {
   // Product & category
   PRODUCT_READ: 'PRODUCT_READ',
@@ -72,8 +95,8 @@ export const PERMISSIONS = {
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
-// 3. Role -> permissions mapping
-export const USER_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
+// 3. Tenant role -> permissions mapping
+export const TENANT_ROLE_PERMISSIONS: Record<TenantRole, PermissionKey[]> = {
   OWNER: [
     PERMISSIONS.PRODUCT_READ,
     PERMISSIONS.PRODUCT_CREATE,
@@ -220,4 +243,55 @@ export const USER_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
 
     PERMISSIONS.DASHBOARD_VIEW,
   ],
+
+  VIEWER: [
+    PERMISSIONS.PRODUCT_READ,
+    PERMISSIONS.CATEGORY_READ,
+    PERMISSIONS.SALE_READ,
+    PERMISSIONS.PURCHASE_READ,
+    PERMISSIONS.CUSTOMER_READ,
+    PERMISSIONS.SUPPLIER_READ,
+    PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.REPORT_VIEW,
+    PERMISSIONS.DASHBOARD_VIEW,
+  ],
 };
+
+// 4. Platform role -> permissions mapping
+export const PLATFORM_ROLE_PERMISSIONS: Record<PlatformRole, PermissionKey[]> =
+  {
+    PLATFORM_OWNER: [
+      // Full access to everything
+      ...Object.values(PERMISSIONS),
+    ],
+
+    PLATFORM_ADMIN: [
+      // Almost everything except possibly destructive tenant ops;
+      // you can tune this list as needed.
+      ...Object.values(PERMISSIONS),
+    ],
+
+    PLATFORM_SUPPORT: [
+      // Read-most, limited write
+      PERMISSIONS.PRODUCT_READ,
+      PERMISSIONS.CATEGORY_READ,
+      PERMISSIONS.SALE_READ,
+      PERMISSIONS.PURCHASE_READ,
+      PERMISSIONS.CUSTOMER_READ,
+      PERMISSIONS.SUPPLIER_READ,
+      PERMISSIONS.INVENTORY_READ,
+      PERMISSIONS.TAX_READ,
+      PERMISSIONS.USER_READ,
+      PERMISSIONS.TENANT_READ,
+      PERMISSIONS.REPORT_VIEW,
+      PERMISSIONS.NOTIFICATION_READ,
+      PERMISSIONS.AUDIT_READ,
+      PERMISSIONS.DASHBOARD_VIEW,
+    ],
+
+    NONE: [],
+  };
+
+// 5. Backwards compatible – keep USER_PERMISSIONS for existing code
+export const USER_PERMISSIONS: Record<UserRole, PermissionKey[]> =
+  TENANT_ROLE_PERMISSIONS;
